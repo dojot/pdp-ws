@@ -25,26 +25,34 @@ public class Connect {
 	public void closeConnection() throws SQLException {
 		con.close();
 	}
-	
+
 	public Boolean getPermission(String action, String resource, String accessSubject) {
 		try {
-
 			PreparedStatement preparedStatement = con
-					.prepareStatement("select resource from dojot_authorization.authorization where action = ? and accessSubject = ?");
-			preparedStatement.setString(1, action);
-			preparedStatement.setString(2, accessSubject);
+					.prepareStatement("select resource, action from dojot_authorization.authorization where accessSubject = ?");
+			preparedStatement.setString(1, accessSubject);
 
 			ResultSet rs = preparedStatement.executeQuery();
 
 			while (rs.next()) {
-				String resourceAuthorized = rs.getString("resource");
-				
-				if (resource.contains(resourceAuthorized)) {
-					return true;
+				String resourceAuthorizedPattern = rs.getString("resource");
+				String actionAuthorizedPattern = rs.getString("action");
+
+
+				try {
+					Boolean resourceMatch = resource.matches(resourceAuthorizedPattern);
+		      Boolean actionMatch = action.matches(actionAuthorizedPattern);
+					if (resourceMatch && actionMatch) {
+						return true;
+					}
+				} catch (java.util.regex.PatternSyntaxException ex) {
+					Logger lgr = Logger.getLogger(Connect.class.getName());
+					lgr.log(Level.SEVERE,"The policy (" + accessSubject + ") can ("	+ actionAuthorizedPattern + ") at resource (" + resourceAuthorizedPattern + ") have an invalid regexPattern");
+					continue;
 				}
 			}
-								
-			return false;		
+
+			return false;
 		} catch (SQLException ex) {
 			Logger lgr = Logger.getLogger(Connect.class.getName());
 			lgr.log(Level.SEVERE, ex.getMessage(), ex);
